@@ -19,50 +19,56 @@ Load the executable into the debugger with the following command:
 
 You can preview the file information with :
 `info files`
-![](images/image1.png)
+![](/images/image1.png)
 From the output we can see that it indicates the memory addresses to the different section of the executable. It also indicates the absolute path of the executable and the file type of the file.
 
-Then disassemble the executable with the following command.
-`dissasemble vuln `
-The expectation is to get an assembly program code.
-This command writes the code in assembly language
-Decided to first overflow the `scanf()` and then observe how it affects the stack.
-I overflowed it by inputting a very long string for the input. But before overflowing it we need to first check the status of the stack  before the `scan()` function is called in order to identify the memory addresses that would be overwritten by the overflowed data. For this activity I would be using <GNU gdb >debugger
-### (a) Running gdb on the compiled ELF 
-`gdb ./vuln`
-![](/images/image3.png)
-### (b) Setting a break point before the scanf() function
-`break  greet`
-The syntax for setting the breaking points is the keyword break followed by the name of a defined function within the program.
-![](/images/image4.png)
-### (c) Run the program inside GNU gdb
-`run`
-The expectation is for the program to pause the running after hitting the greet() so we can inspect the stack first.
-### (d) Inspect the registers and their contents
-`infor all-regisers`
-![](/images/image4.png)
-### (e) Continue the execution of program
-`continue`
-This would continue the program from the breaking point.
-![](/images/image5.png)
-Note: The scanf() functions seems to be taking input upto a whitespace and a null terminator so if one is to overflow the input buffer the name should not be having anywhitespaces else the function would cut the input at that point.
-The gbd returned a SIGSEGV, segmentation fault signal - this seems to be a good sign that the overflow has occured since it failed to fit into the memory space of the input buffer.
-### Reinspect the registers to see if there are any changes
-The expectation is for the first registers to be the ones that get overwritten
-![](/images/image6.png)
-This are the characteristics that i looked for to determine if there was an actual overflow in the registers:
-a) The return of the Segmentation fault signal
-b) Different values on the registers information
-Since I have been able to determine that there is an overflow now the next step is to  get a way to exploit the overflow as an attack surface of the program. This are what i could come up with.
-(i) Heap exploitation
-(ii) Redirecting the instruction pointer
-I will try performing the two on the program and see how they work.
-## Heap Exploitation
-For this i would have to further understand the program intricacies for this i decided to use Radare for the disassembly of the binary so that i would understand how the  program interacts with the registers.
+Then disassemble the executable with the following command. The argument after the keyword is a function name.
+`dissasemble greet `
+![](/images/image2.png)
+We can see that the tool performs an assembly dump of the  vulnerable function greet. It shows the memory addresses the syscalls made the registers use and the symbols used.
 
-The tool i decided to use to look into the binary file was radare2 a tool that i was not that much familiar with so i had to first learn it and as i was playing around with it i fell into the disassembly section where i saw it was possible to understand how the program worked with the registers and at what memory addresses and with that i could be able to utiiize that to exploit the overflow presence put forth by the presence of the insecure functions
-`r2 vuln`
-`v`
+### (c) Finding the overflow offset.
+The overflow offset is the number of bytes that i would need to put into an overflowing input before i reach a specific piece of data that i want to overwrite
+For the generation of the overflow input we can use pwntools. It is a python framework for binary exploitation and Capture The Flag ( CTF) work. It provides convinient fucntions for interacting with programs, manipulating binary data , debugging and building exploit experiments. To generate the input I used the following steps.
+(i) Create a virtual environemnt with :
+`python -m venv venv`
+(ii) Activated the virtual environment
+`source venv/bin/venv`
+(iii) Installed the pwn module
+`pip install pwn`
+(iv) Ran the following command to get the overflow input. For a 64bit X86-64 system then the best approach is to use the 8-byte cyclic pattern where we specify n=8 otherwise pwntools would use its default n=4
+`python3 -c 'from pwn import *; print(cyclic(200, n=8).decode())`
+
+The next step is now to run the executable and feed the input data. Inside gdb:
+`run`
+![](images/image3.png)
+As expected the program crashed signaled by the segmentation fault error output.
+After this I inspected the registers with:
+`info registers rbp rsi rip`
+The focus being on the following registers: rip , rbp and rsp . This is so that i can be able to determing which part of the cyclic pattern reached the saved return address.
+![](images/image4.png)
+I observed that the patterns for the rbp register looked like a ASCII pattern data instead of a normal stack address but the rip seems to have remained intact and rbp got overwritten.. Now from here I can find the rbp offset by using the pwntools still and we also have to specify the use of 8 bytes pattern
+`python3 -c 'from pwn import *; print(cyclic_find(0x6261616162616161, n=8))`
+
+![](images/image5.png)
+The value 1 in this case is not the offset buffer to the RIP as we expected it is the offset of the byte sequence inside the generated pattern because of this we need to do some more digging. To see the value of the saved rip 
+`info frame`
+![](images/image6.png)
+It is evident that the value of the current rbp and that of the saved rip are different. This means the rip was actually overwritten but also suggest that the program is taking in the supplied pattern input in a different way than I thought earlier calling for a need to do the inspection of the stack frame.
+`disassemble main`
 ![](images/image7.png)
-Under the functions section there was also the presence of the `puts()` function which i had not explicitly used on the code in the vulnerablefile.c to me it appears like underneath that function though it was removed from the standard library seems to be still used under the hood. 
-To start with i would want to do the allocator bookkeepinid overwrite since it is the most basic one
+`disassemble greet`
+![](images/image8.png)
+`x/40gx 0x7fffffffdbe0`
+![](images/image9.png)
+Looking at the disassembly the instructions such as `sub    $0x10,%rsp` tell how much stack space was allocated while instructions such as `lea    -0x1(%rbp),%rax` tell where the input buffer sits relative to the rbp. From the disassembly we can also confirm that the compiler placed the input object at an unusual place thus the output 1, it was placed at rbp-1 indicated by the instruction `lea -0x1(%rbp),%rax`
+To now get the rip offset we expect it to be at 9 from the command note we are using the value of the saved rip ( from info frame:
+`python3 -c 'from pwn import*; print(cyclic_find(0x6361616161616161))'`
+Given that our offset is 9bytes then the basic payload structure would be: [payload syntax](payload.py)
+
+### (d) Creating the exploit
+[exploit code](exploit.py)
+Run the exploit
+`python exploit.py`
+The exploit above is one to simply confirm the overwritting of the offset buffer.
+
