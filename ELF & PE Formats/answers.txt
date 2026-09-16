@@ -1,0 +1,7 @@
+Question 1: Architecture tell what CPU instruction set the binary is compiled for. From the output for the command `readelf -h hello ` the architecture is Advanced Micro Devices x86-64 denored by the key  Machine.
+Question 2:  The enry point is explicitly stated as  0x1050 in the output of the command `readelf -l hello`
+Question 3:  Text is at the address 0000000000001050  from `readelf -S hello ` and also indicated in the `objdump -d hello`
+Question 4: Data is at the address 0000000000004008 from `readelf -S hello`
+Question 5:  To find the executable regions we look for the segments with E flag in the output of the command `readelf -l hello`. In this case it is 0x0000000000001000 the virtual address
+Question 6: The shared library depended on is the libc.so 6 as indicated in the output of the command `readelf -d hello`
+Question 7: To determine the relationship between the file and process memory layout the key is to connect the segments with the virtual memory map as indicated under the readelf -l hello command.
