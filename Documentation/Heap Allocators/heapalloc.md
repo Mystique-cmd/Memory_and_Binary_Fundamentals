@@ -1,42 +1,67 @@
-A heap allocator is the component responsible for managing dynamically allocated memory.
-```
-	//C
-	char *buf = malloc(100)
-```
-The program asks for 100 bytes of dynamically usable memory.
-`malloc()` does not manually ask the kernel for exactly 100 bytes every time. Instead , the allocator manages a larger region of memory and divides it into pieces called chunks/blocks.
-The allocators job essentially is to :
-(i) Give programs chunks of memory
-(ii) Keep track of the allocated memory
-(iii) Reuse freed chunks
-(iv) Obtain more memory from the OS when necessary
-A common misconception is that malloc() interacts with the OS directly which is not true it does that through the allocator and it interacts with the OS only when more memory is needed through mechanisms such as `brk` , `sbrk` and `nmap`
-A chunk is made up of the allocator metadata and the user data and typically the pointer for the malloc function typically points to the user-data portion , not necessarily the beginning of the entire allocator chunk
-### Allocator Metadata
-When using `free()` the allocator simply changes the state of the chunk and the memory may still physically contatin old bytes but the program no longer owns that allocation. That is a use-after-free.
-The allocator needs bookkeeping information such as:
-(i) How large is a chunk?
-(ii) Is it free?
-(iii) What other chunks are around it?
-(iv) Where should this freed chunk go?
-(v) Can it be merged with another free chunk?
-When a program has a memory corruption ug htat allows writing beyound the intended buffer then you can potentially corrupt allocator  bookkeeping. A foundation of heap exploitation
-### Fragmentation
-It is when a program memory request cannot be satisfied by either of two individual chucks because neither is large enough. 
-Given two chunks each 100 bytes and the program requests 180 bytes - this cause external fragmentation,
-To overcome this the allocators implement the following strategies:
-(i) Splitting chunks
-(ii) Merging chunks
-(iii) Maintaining free lists - a free list is simply a linked list of free chunks
-(iv) Grouping similarly sized allocations
-(v) Requesting large regions from the OS
+# Heap Allocators
 
-There are diffirent kinds of allocators that vary from one system to another. They include:
-(i) glibc's malloc - for Linux historically associated with ptmalloc
-(ii) jemalloc
-(iii) tcmalloc
-(iv) musl's allocator
-(v) mimalloc
-(vi) custom application allocators
-They all have different internal designds and this matters because a heap exploitation technique depends heavily on the allocator implementation and version since one technique can work on one and fail on the other
-The heap is memory and the allocator is the system that manages that memory.
+A heap allocator is responsible for managing dynamically allocated memory.
+
+```c
+char *buf = malloc(100);
+```
+
+This asks the program for 100 bytes of usable memory. However, `malloc()` does not directly ask the kernel for exactly 100 bytes each time. Instead, the allocator manages a larger region of memory and splits it into chunks or blocks.
+
+## What the allocator does
+
+The allocator's job is to:
+
+- give programs chunks of memory
+- track allocated memory
+- reuse freed chunks
+- request more memory from the OS when needed
+
+A common misconception is that `malloc()` directly interacts with the OS for every request. In reality, it usually interacts with the allocator, and the allocator requests more memory from the OS through mechanisms such as `brk`, `sbrk`, or `mmap` only when necessary.
+
+## Chunks and metadata
+
+A chunk contains allocator metadata and the user-visible data area. Usually, the pointer returned by `malloc()` points to the user data portion, not necessarily to the beginning of the entire chunk.
+
+## Allocator bookkeeping
+
+When a program calls `free()`, the allocator typically updates the chunk state rather than wiping the memory contents. The bytes may still remain in memory physically, but the program no longer owns that allocation.
+
+This can lead to issues such as use-after-free.
+
+The allocator stores bookkeeping information such as:
+
+- how large the chunk is
+- whether it is free or allocated
+- what neighboring chunks exist
+- where a freed chunk should go
+- whether it can be merged with another free chunk
+
+If a memory-corruption bug allows a program to write beyond the intended buffer, the allocator metadata may also be corrupted. This is a fundamental concept in heap exploitation.
+
+## Fragmentation
+
+Fragmentation occurs when a request cannot be satisfied by the available free chunks because they are too small or poorly arranged.
+
+For example, if there are two free chunks of 100 bytes each and the program requests 180 bytes, the allocator cannot satisfy the request without splitting or rearranging memory.
+
+To handle this, allocators usually implement:
+
+- chunk splitting
+- chunk merging
+- free lists
+- grouping by allocation size
+- requesting large regions from the OS
+
+## Different allocator implementations
+
+Different systems use different heap allocators. Examples include:
+
+- glibc `malloc` (historically based on ptmalloc)
+- jemalloc
+- tcmalloc
+- musl allocator
+- mimalloc
+- custom application-specific allocators
+
+These implementations differ internally, and this matters because an exploitation technique may work against one allocator but fail against another. The heap is memory, but the allocator is the subsystem that manages it.
