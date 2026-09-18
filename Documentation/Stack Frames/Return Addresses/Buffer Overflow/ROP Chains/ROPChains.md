@@ -1,46 +1,76 @@
-ROP Chains stands for Return Oriented Programming Chains.
-It is one of the most powerful exploitation technique in modern offensive engineering. They exist because stack frames contain return addresses and if you can overwrite a return address, you can control execution without injecting new code.
-A ROP Chain is a sequence of addresses of existing instructions ( called gadgets ) placed on the stack so that when a program executes RET, it jumps from gadget to gadget, performing attacker controlled operations.
-There is no code injections it is about simply reusing code already in the binary or libraries.
-This bypasses DEP/NX ( non-executable stack ) because you never execute your own shellcode - you execute their code in your order.
-## Why ROP Chains LIve in Stack Frames
-Because the Return Addresses are in the stack frame.
+# ROP Chains
+
+ROP stands for Return-Oriented Programming. A ROP chain is a sequence of existing instruction fragments, called gadgets, arranged so that execution flows from one gadget to the next by abusing the stack and the `RET` instruction.
+
+This technique exists because stack frames contain return addresses. If an attacker can overwrite a return address, they can redirect execution without injecting new code.
+
+## Why ROP exists
+
+Modern mitigations such as DEP/NX prevent execution from writable memory, but they do not prevent the processor from executing code that already exists in the binary or shared libraries. ROP reuses harmless-looking instruction sequences that already exist in memory.
+
+A ROP chain is not shellcode injection. It is code reuse.
+
 ![](./images/image1.png)
-## What is a Gadget?
-A gadget is a short instruction sequence ending in RET
-```
+
+## What is a gadget?
+
+A gadget is a short instruction sequence that ends with a `RET` instruction.
+
+Example gadgets:
+
+```asm
 pop rdi; ret
 add rax, rdi; ret
 mov [rdi], rsi; ret
 ```
-They exists naturally in binaries and libraries ( especially libc)
-You find them using tools like :
-(i) ROPgadget
-(ii) radare2 /R
-(iii) objdump -d
 
-## Why ROP Chains Matter
-They allow you to:
-a) Set registers ( using pop gadgets )
-b) Call functions ( like system ("bin/sh")
-c) Write memory
-d) Read memory
-e) Pivot the stack
-f) Bypass DEP/NX
-g) Bypass ASLR ( with leaks)
-h) Achieve full code execution
+These gadgets are found naturally in binaries and libraries, especially in `libc`.
 
-## Why ROP Chains are the future
-Modern systems block:
-(i) Executable stacks
-(ii) Executable heaps
-(iii) Writable code segments
-But they cannot return instructions - programs need them and ROP chains exploit this fundamental CPU behavior
+Useful tools for finding them include:
 
-1. Compile the vuln.c file and then compile it without the protection.
-2. Find system and "/bin/sh" in the binary - use `nm` and `strings`
-`nm -D vuln | grep system `
-nm -D lists dynamic symbols - functions imported from shared libraries
-`strings -a -t x /lib/x86_64-linux-gnu/libc.so.6 | grep "/bin/sh"`
+- ROPgadget
+- `radare2`
+- `objdump -d`
+
+## Why ROP chains matter
+
+ROP chains allow attackers to:
+
+- set registers using `pop` gadgets
+- call functions such as `system("/bin/sh")`
+- write memory
+- read memory
+- pivot the stack
+- bypass DEP/NX
+- bypass ASLR with memory leaks
+- achieve arbitrary code execution
+
+## Why they are effective
+
+Modern systems often block:
+
+- executable stacks
+- executable heaps
+- writable code segments
+
+But they still need to execute ordinary instructions from the program or libraries. ROP exploits this fact by chaining existing instructions in a controlled order.
+
+## Practical workflow
+
+1. Compile the vulnerable program without stack protections.
+2. Find the address of `system` and the string `"/bin/sh"`.
+3. Locate a `pop rdi; ret` gadget.
+4. Build a payload that redirects execution through the gadgets in the desired order.
+
+Example commands:
+
+```bash
+nm -D vuln | grep system
+strings -a -t x /lib/x86_64-linux-gnu/libc.so.6 | grep "/bin/sh"
+```
+
 ![](./images/image2.png)
-3. Find pop rdi; ret gadget - you can use ROPgadget or radare2
+
+## Summary
+
+ROP chains demonstrate that the system can still be abused even when code injection is blocked. By reusing existing instructions and controlling the return-address flow, attackers can build arbitrary execution paths without writing new executable code into memory.

@@ -1,63 +1,104 @@
-Function Arguments in stack frames are the first layer of data that gets placed when a function is called.
-They define how values are passed into the function, and depending on the architecture and calling convention, they may live in registers or spill inot the stack
+# Function Arguments in Stack Frames
 
-## How Function Arguments Are Stored
-i) Registers first - On System V AMD64 the first six integer/ pointer arguments go into registers : %rdi, %rsi, %rdx, %rcx, %r8, %r9.
-On Windows x64, the first four go into %rcx, %rdx, %r8, %r9
-ii) Stack Spill - If there are more arguments than the registers can hold, the extras are pushed onto the stack
-(iii) Alignment - The stack pointer %rsp is aligned to 16bytes before a call. Arguments are padded if necessary to maintain alignement
+Function arguments are the first layer of data placed when a function is called. They define how values are passed into a function, and depending on the architecture and calling convention, they may live in registers or spill onto the stack.
 
-## Why this matters in Exploitation
-i) Buffer Overflows - if arguments spill onto the stack, they sit right next to local variables and saved registers and these are prime targets for corruption
-ii) ROP Chains - Understanding which arguments are in registers vs stack lets you craft payloads correctly
-iii) Reverse Engineering - Recognizing argument placement helps reconstruct function prototypes from disassembly
+## How function arguments are stored
 
-In the file "funcarg.c"
-- a -> %rdi
-- b -> %rsi
-- c -> %rdx
-- d -> %rcx
-- e -> %r8
-- f -> %r9
-- g -> pushed onto the stack
+### Registers first
 
-## Reading the Stack 
-# Compile With Debug Symbols
-``` gcc -O0 -g -fno-stack-protector funcarg.c -o funcarg 
-	#-O0 no optimization ( keeps stack frames readable)
-	# -g includes debug symbols
-	# -fno-stack-protector  disables stack canaries so you can see raw memory
+On System V AMD64, the first six integer or pointer arguments are passed in:
+
+- `%rdi`
+- `%rsi`
+- `%rdx`
+- `%rcx`
+- `%r8`
+- `%r9`
+
+On Windows x64, the first four arguments are passed in:
+
+- `%rcx`
+- `%rdx`
+- `%r8`
+- `%r9`
+
+### Stack spill
+
+If there are more arguments than registers can hold, the remaining arguments are pushed onto the stack.
+
+### Alignment
+
+The stack pointer `%rsp` is often aligned to 16 bytes before a call. Extra padding may be inserted as needed to preserve alignment.
+
+## Why this matters in exploitation
+
+Understanding where arguments live is important because:
+
+- buffer overflows can corrupt arguments that have spilled onto the stack
+- ROP chains depend on correct register and stack layout
+- reverse engineering often involves reconstructing function prototypes from disassembly
+
+In the file `funcarg.c`:
+
+- `a` -> `%rdi`
+- `b` -> `%rsi`
+- `c` -> `%rdx`
+- `d` -> `%rcx`
+- `e` -> `%r8`
+- `f` -> `%r9`
+- `g` -> pushed onto the stack
+
+## Reading the stack
+
+### Compile with debug symbols
+
+```bash
+gcc -O0 -g -fno-stack-protector funcarg.c -o funcarg
 ```
 
-# Launch gdb
- 
- ` gdb ./funcarg `
-	
-# Set Breakpoint at Sum
+- `-O0` keeps the stack frame readable.
+- `-g` includes debug symbols.
+- `-fno-stack-protector` disables stack canaries so raw memory can be examined.
 
-``` 
-	break sum
-	run 
+### Launch gdb
+
+```bash
+gdb ./funcarg
 ```
-This will stop the execution right when sum is called.
-# Inspect Register
 
-` info registers `
+### Set a breakpoint at `sum`
 
-Notice the first six arguments in the registers
-
-# Inspect the Stack
-Dumping memory at the stack pointer
-``` 
-	x/16gx $rsp
-	# x - examine memory
-	#/16 - show 16 entries
-	# g - each entry is a "giant word" (8 bytes )
-	# x - display in hexadecimal
-	# $rsp - start at the current stack pointer register
+```gdb
+break sum
+run
 ```
+
+This stops execution exactly when `sum` is called.
+
+### Inspect registers
+
+```gdb
+info registers
+```
+
+Observe the first six arguments in the registers.
+
+### Inspect the stack
+
+Dump memory at the current stack pointer:
+
+```gdb
+x/16gx $rsp
+```
+
+- `x` - examine memory
+- `/16` - display 16 entries
+- `g` - each entry is 8 bytes
+- `$rsp` - start at the current stack pointer
+
 ![](./images/image1.png)
-0x0000000000000007 - represents the 7th argument. The other entries represent return addresses, frame pointers and runtime library addresses.
+
+The value `0x0000000000000007` represents the seventh argument. The surrounding entries may include return addresses, frame pointers, and runtime-library metadata.
 
 ![](./images/image2.png)
 
