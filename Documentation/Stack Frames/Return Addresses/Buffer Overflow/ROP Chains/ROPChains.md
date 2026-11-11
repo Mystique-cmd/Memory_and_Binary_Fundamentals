@@ -2,6 +2,8 @@
 
 ROP stands for Return-Oriented Programming. A ROP chain is a sequence of existing instruction fragments, called gadgets, arranged so that execution flows from one gadget to the next by abusing the stack and the `RET` instruction.
 
+This page is a conceptual overview of a security risk, not a chain-building exercise. The accompanying [vuln.c](vuln.c) is a bounded adjacent-data demonstration and does not provide saved-return-address control.
+
 This technique is relevant when control-flow data is corrupted. It is included here to explain why non-executable data pages alone do not eliminate every control-flow risk.
 
 ## Why ROP exists
