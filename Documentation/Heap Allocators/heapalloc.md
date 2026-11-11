@@ -43,7 +43,7 @@ If a memory-corruption bug allows a program to write beyond the intended buffer,
 
 Fragmentation occurs when a request cannot be satisfied by the available free chunks because they are too small or poorly arranged.
 
-For example, if there are two free chunks of 100 bytes each and the program requests 180 bytes, the allocator cannot satisfy the request without splitting or rearranging memory.
+For example, if two non-adjacent free chunks each have 100 bytes available and a request needs 180 contiguous bytes, neither chunk alone can satisfy it. An allocator generally cannot rearrange live objects; it may instead obtain more memory or use another suitable region.
 
 To handle this, allocators usually implement:
 

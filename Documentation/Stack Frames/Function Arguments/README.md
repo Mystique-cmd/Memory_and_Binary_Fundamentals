@@ -24,11 +24,11 @@ On Windows x64, the first four arguments are passed in:
 
 ### Stack spill
 
-If there are more arguments than registers can hold, the remaining arguments are pushed onto the stack.
+If there are more arguments than the ABI's argument registers can hold, the remaining arguments occupy a caller-prepared stack argument area; they are not necessarily passed using individual `push` instructions.
 
 ### Alignment
 
-The stack pointer `%rsp` is often aligned to 16 bytes before a call. Extra padding may be inserted as needed to preserve alignment.
+For ordinary System V AMD64 calls, the stack is aligned to 16 bytes at the call boundary; because `call` stores an 8-byte return address, function entry normally has `%rsp` congruent to 8 modulo 16. Padding may be needed when preparing arguments.
 
 ## Why this matters in exploitation
 
@@ -73,7 +73,7 @@ break sum
 run
 ```
 
-This stops execution exactly when `sum` is called.
+This stops at the function entry. Argument locations depend on the target ABI and function signature; optimized code and variadic calls can have additional rules.
 
 ### Inspect registers
 

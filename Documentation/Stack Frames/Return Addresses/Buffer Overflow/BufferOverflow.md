@@ -9,40 +9,35 @@ A buffer overflow occurs when a program writes more data into a buffer than the 
 
 ## How it works
 
-1. A function declares a local buffer such as `char buf[16];`.
-2. User input is read without proper bounds checking, for example with `gets(buf)`.
-3. The attacker supplies more than the buffer can hold.
-4. The excess data spills past the buffer and begins overwriting nearby stack content.
-5. When the function returns, the CPU uses the corrupted return address and jumps to an attacker-controlled location.
+1. A program has an object with a defined capacity.
+2. A bug allows a write to exceed that object's bounds.
+3. The out-of-bounds write may corrupt adjacent data; the result depends on the program, compiler, and runtime layout.
+4. A crash or corrupted value does not by itself demonstrate control of a return address.
 
 ## Practical example
 
-Compile the vulnerable example with protections disabled:
+The example in [overflowvuln.c](overflowvuln.c) uses a bounded input operation and an oversized backing array to demonstrate changes across a logical field boundary. It deliberately keeps writes inside the C array and does not overwrite a saved return address:
 
 ```bash
-gcc -O0 -fno-stack-protector -std=gnu89 overflowvuln.c -o vuln
+gcc -g -O0 -Wall -Wextra overflowvuln.c -o vuln
 ```
 
-Then run it under GDB:
+Run the bounded example normally, or inspect its array in GDB:
 
 ```gdb
-break vuln
+break overflowvuln.c:19
 run
-x/32gx $rsp
+next
+x/24cb state->arena
 ```
 
-This allows you to inspect how the stack changes before and after the overflow is triggered.
-
-![](./images/image1.png)
-![](./images/image2.png)
-![](./images/image3.png)
-![](./images/image4.png)
+When the program prompts, enter 16 `A` characters followed by four `B` characters. `next` executes the bounded input call; the memory examination then shows the marker change. The input width is intentionally capped so the write stays inside the backing array; it is not a saved-return-address overwrite exercise.
 
 ## Why `gets()` is dangerous
 
-Modern compilers reject `gets()` because it is inherently unsafe. It reads an unbounded number of bytes until a newline or EOF, which makes it a classic source of stack overflows.
+`gets()` reads until newline or EOF without a size limit and was removed from the C standard library specification in C11. Its declaration may be absent from modern headers, and choosing an older language mode is not a safe or portable fix. Do not use it in new code.
 
-To practice these techniques safely, a few common workarounds are used:
+Use a bounded interface and check its result and any truncation behavior. For example:
 
 ### Use `fgets()` instead
 
@@ -51,23 +46,7 @@ char buf[128];
 fgets(buf, sizeof(buf), stdin);
 ```
 
-This is safer because it reads only up to `n-1` characters and null-terminates the buffer.
-
-### Force legacy C mode
-
-```bash
-gcc -O0 -fno-stack-protector -std=gnu89 overflowvuln.c -o vuln
-```
-
-This allows older examples to compile on modern systems.
-
-### Manually declare `gets()`
-
-```c
-char *gets(char *buf);
-```
-
-This is a compatibility workaround, not a recommended practice.
+`fgets()` reads at most `sizeof(buf) - 1` bytes and NUL-terminates on success. Callers should still handle errors and decide how to deal with a line that did not fit.
 
 ## Common unsafe functions
 
@@ -85,7 +64,7 @@ Unsafe when used without width limits:
 scanf("%s", buf);
 ```
 
-This can overwrite adjacent memory if the input exceeds the buffer size.
+This can write past the destination array if the input exceeds its capacity.
 
 Safe patterns include:
 
@@ -108,10 +87,7 @@ strcpy(dest, src);
 
 This copies until a null terminator is reached and performs no bounds checks.
 
-Safer alternatives:
-
-- `strncpy()`
-- `strlcpy()`
+Prefer APIs that take the destination capacity, such as `snprintf()` for formatted strings. `strncpy()` may leave the destination unterminated when truncated, and `strlcpy()` is not available on every platform; either requires deliberate return-value and termination handling.
 
 ### `strcat()`
 
@@ -121,10 +97,7 @@ strcat(dest, src);
 
 This appends source data without checking whether the destination still has space left.
 
-Safer alternatives:
-
-- `strncat()`
-- `strlcat()`
+Prefer an operation that tracks the remaining destination capacity. `strncat()` and `strlcat()` have distinct semantics, and `strlcat()` is not portable to every platform; do not treat either name alone as proof of safety.
 
 ### `sprintf()`
 
