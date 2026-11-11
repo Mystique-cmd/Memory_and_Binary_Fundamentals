@@ -1,7 +1,7 @@
-Question 1: Architecture tell what CPU instruction set the binary is compiled for. From the output for the command `readelf -h hello ` the architecture is Advanced Micro Devices x86-64 denored by the key  Machine.
-Question 2:  The enry point is explicitly stated as  0x1050 in the output of the command `readelf -l hello`
-Question 3:  Text is at the address 0000000000001050  from `readelf -S hello ` and also indicated in the `objdump -d hello`
-Question 4: Data is at the address 0000000000004008 from `readelf -S hello`
-Question 5:  To find the executable regions we look for the segments with E flag in the output of the command `readelf -l hello`. In this case it is 0x0000000000001000 the virtual address
-Question 6: The shared library depended on is the libc.so 6 as indicated in the output of the command `readelf -d hello`
-Question 7: To determine the relationship between the file and process memory layout the key is to connect the segments with the virtual memory map as indicated under the readelf -l hello command.
+Question 1: The architecture identifies the CPU instruction set targeted by the binary. In `readelf -h hello`, the `Machine` field reports Advanced Micro Devices X86-64.
+Question 2: The ELF header's `Entry point address` field reports `0x1050` for this build. Inspect it with `readelf -h hello`.
+Question 3: The `.text` section's virtual address is `0x1050` for this build, as shown by `readelf -S hello`. `objdump -d hello` disassembles executable code; section and segment addresses can vary between builds.
+Question 4: The `.data` section's virtual address is `0x4008` for this build, as shown by `readelf -S hello`. This is a virtual address, not a file offset.
+Question 5: In `readelf -l hello`, look for a `LOAD` segment whose flags include `E` (execute). For this build, its virtual address begins at `0x1000`; the segment covers a range, not just that one address.
+Question 6: `readelf -d hello` lists dynamic dependencies in `NEEDED` entries. For this build, one dependency is `libc.so.6`; actual loaded library paths can be inspected with tools such as `ldd`.
+Question 7: Compare the `LOAD` program headers from `readelf -l hello` with their file offsets, virtual addresses, sizes, and permissions. These describe how file-backed ranges are mapped into process memory; runtime mappings can additionally depend on relocations, PIE, and ASLR.

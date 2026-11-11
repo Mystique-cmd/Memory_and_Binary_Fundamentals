@@ -24,7 +24,7 @@ On modern x86-64 Linux (System V ABI), the first integer or pointer arguments ar
 5. `r8`
 6. `r9`
 
-If more arguments are needed, the remaining values are passed on the stack.
+If more arguments are needed, the remaining values are passed in a stack argument area. The caller need not implement this as a series of individual `push` instructions.
 
 ## Return Value
 
@@ -48,7 +48,7 @@ For the common x86-64 System V ABI used on Linux:
 - `r9` - 6th argument
 - `rax` - return value
 - `rsp` - stack pointer
-- `rbp` - frame/base pointer when used
+- `rbp` - callee-saved register; it may be used as a frame pointer, but optimized code often uses it for general purposes
 - `rip` - instruction pointer
 
 ## Caller-saved vs Callee-saved Registers
@@ -81,11 +81,11 @@ For Windows x64:
 4. `r9` - 4th argument
 5. `rax` - return value
 
-On System V x86-64, if there are more than six arguments, the extra arguments are passed through the stack.
+On System V x86-64, integer/pointer arguments beyond the first six use the stack argument area. Windows x64 passes the first four integer/pointer arguments in `rcx`, `rdx`, `r8`, and `r9`, and reserves caller-provided shadow space; later arguments use the stack.
 
 ## Floating-Point Arguments
 
-On x86-64 System V, floating-point arguments are usually passed in XMM registers rather than general-purpose registers. Their return values typically come back in `xmm0`.
+On x86-64 System V, floating-point arguments use XMM registers according to the ABI's separate argument classification. Their return values typically come back in `xmm0`.
 
 ## Variadic Functions
 
